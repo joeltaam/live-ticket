@@ -28,16 +28,15 @@ const authVal = document.cookie
   .map((a) => a.split("="))
   .find(([name]) => name.trim() === "cookie_user_auth") as any;
 
-const postData = (data: {
+let timer = 0;
+
+const postData = async (data: {
   ticketId: string;
   performanceId: string;
   timeId: string;
 }) => {
   const param = {
     number: 1,
-    // ticketId: "2147175463454187521441808",
-    // performanceId: "2147175463244472326515578",
-    // timeId: "2147175463328358409303173",
     isElectronic: 1,
     isExpress: 0,
     deviceFrom: "wap",
@@ -47,6 +46,7 @@ const postData = (data: {
     expressType: 0,
     agentId: 0,
     payType: "alipay",
+    enterIdList: ["2197930089065021445382557"],
     ...data,
   };
 
@@ -60,28 +60,41 @@ const postData = (data: {
     }
   ).toString();
   const i = new Date().getTime();
+  try {
+    const res = await fetch("https://order.zhengzai.tv/order/order/pre", {
+      method: "post",
+      headers: {
+        Authorization: "Bearer " + authVal[1],
+        source: "H5",
+        version: "1.1",
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json;charset=UTF-8",
+        "X-Forwarded-For": "39.156.66.10",
+      },
+      body: JSON.stringify({
+        sign: CryptoJs.SHA1(n + i + "QGZUanpSaSy9DEPQFVULJQ==").toString(),
+        encryptedData: n,
+        timestamp: i,
+      }),
+    }).then((res) => res.json());
 
-  fetch("https://order.zhengzai.tv/order/order/pre", {
-    method: "post",
-    headers: {
-      Authorization: "Bearer " + authVal[1],
-      source: "H5",
-      version: "1.1",
-      Accept: "application/json, text/plain, */*",
-      "Content-Type": "application/json;charset=UTF-8",
-    },
-    body: JSON.stringify({
-      sign: CryptoJs.SHA1(n + i + "QGZUanpSaSy9DEPQFVULJQ==").toString(),
-      encryptedData: n,
-      timestamp: i,
-    }),
-  })
-    .then((res) => res.json())
-    .then((res) => {
+    clearInterval(timer);
+
+    const code = res.code;
+    if (["20012", "20016"].includes(code)) {
       if (res.message) {
         console.log(`%c${res.message}`, `color:red;font-size:60px`);
       }
-    });
+      timer = setInterval(() => {
+        run();
+      }, 3000);
+    }
+  } catch (e) {
+    clearInterval(timer);
+    timer = setInterval(() => {
+      run();
+    }, 5000);
+  }
 };
 
 const tickets = [
@@ -107,12 +120,19 @@ const tickets = [
   },
 ];
 
-tickets.forEach((item, i) => {
-  if (i === 0) {
-    postData(item);
-  } else {
-    setTimeout(() => {
-      postData(item);
-    }, i * 100);
+const run = async () => {
+  for (let tick of tickets) {
+    await sleep(1000);
+    await postData(tick);
   }
-});
+};
+
+const sleep = async (timer: number): Promise<void> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, timer);
+  });
+};
+
+run();
